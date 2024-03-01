@@ -1,0 +1,54 @@
+---
+title: "AtelieR 2024 : mini-bootcamp à Palaiseau"
+lang: fr
+format: html
+toc: true
+date: last-modified
+date-format: "[Last Updated on] MMMM, YYYY"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, cache = TRUE)
+library(tidyverse)
+```
+
+## Où ? Quand ?
+
+L'atelieR 2024 ou *mini-bootcamp R* du groupe  [State Of The R](https://stateofther.github.io/)  est prévu sur le Campus AgroParisSaclay dans les locaux de [l'unité MIA-PS](https://mia-ps.inrae.fr/) du **11 au 13 mars 2024**.
+
+StateoftheR est un réseau du [département MathNum INRAE](https://www.inrae.fr/departements/mathnum). 
+
+<iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d21062.740529490813!2d2.18715625!3d48.70849!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x47e678bec3bfca75%3A0x715d0d14bb25a1d3!2sAgroParisTech%20-%20INRAE%20-%20Campus%20Agro%20Paris-Saclay!5e0!3m2!1sfr!2sfr!4v1709312225213!5m2!1sfr!2sfr" width="600" height="450" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+
+Il s'agisse de la première édition sous ce format, un thème privilégié sur 2-3 jours. Cet atelier réunit un groupe de chercheurs, ingénieurs, doctorants, tous utilisateurs avancés de `R` et développeurs de paquets pour explorer les dernières fonctionnalités du logiciel et les nouvelles pratiques de développement. A l'issue de l'atelier le collectif produit une synthèse de cette veille logiciel de manière à progresser collectivement dans l'utilisation du logiciel mais surtout dans la production d'outils statistiques à destination de la communauté.
+
+Le résultat de cette semaine est disponible  [sur cette page](https://stateofther.github.io/atelieR2024/index.html)
+
+## Thématique : analyse de données d'abondance multivariées
+
+Exploration (liste initialement proposée) des modèles et outils :
+
+#### gllvm : Generalized Linear Latent Variable Models
+package R [`{gllvm}`](https://cran.r-project.org/web/packages/gllvm/index.html)
+Estimation is performed using either Laplace approximation method or variational approximation method implemented via TMB ([Kristensen et al., (2016)](https://www.jstatsoft.org/article/view/v070i05). 
+For details see [Niku et al. (2019a)](https://doi.org/10.1371/journal.pone.0216129) and [Niku et al. (2019b)](https://doi.org/10.1111/2041-210X.13303).
+
+#### hmsc : Hierarchical Modelling of Species Communities (HMSC) is a model-based approach for analyzing community ecological data (Ovaskainen et a.2017a).
+[site web](https://www.helsinki.fi/en/researchgroups/statistical-ecology/software/hmsc)
+
+#### PLNmodels 
+package R [`{PLNmodels}`](https://CRAN.R-project.org/package=PLNmodels) et Python [`{pyPLNmodels}`](https://pypi.org/project/pyPLNmodels/)
+site web : [https://pln-team.github.io/PLNmodels/](https://pln-team.github.io/PLNmodels/)
+[Articles de référence](https://pln-team.github.io/publications/)
+
+
+## Participants
+
+Julie Aubert,  Christelle Hennequet-Antier, Mahendra Mariadassou, Laure Sansonnet, Pierre Barbillon, Barbara Bricout, Jeanne Tous, Emily Walker, Isabelle Sanchez,
+Marine Marjou, Tristan Mary-Huard, Eric Parent, Annaïg De Walsche, Bastien Batardière. 
+
+
+## Soutien
+
+<img src = "resources/logo/logotype-mathnum-couleur449x84.png" width="230">  <img src = "resources/logo/Logo-INRAE.jpg" width="150"> 
+

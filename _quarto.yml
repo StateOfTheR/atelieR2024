@@ -1,0 +1,30 @@
+project:
+  type: website
+
+website:
+  title: "atelieR2024"
+  navbar:
+    left:
+      - icon: github
+        href: https://github.com/StateOfTheR/atelieR2024
+        aria-label: GitHub
+      - text: "Instructions"
+        href: instructions.qmd
+    right:
+      - text: Données
+        aria-label: GitHub
+      - text: gllvm
+        aria-label: GitHub
+      - text: hmsc
+        aria-label: GitHub
+      - text: Autour de PLN
+        aria-label: GitHub      
+
+format:
+  html:
+    theme: flatly
+    highlight: tango
+    toc: true
+
+
+
