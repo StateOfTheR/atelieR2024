@@ -1,12 +1,5 @@
 [
   {
-    "objectID": "about.html",
-    "href": "about.html",
-    "title": "About",
-    "section": "",
-    "text": "About this site\n\n1 + 1\n\n[1] 2"
-  },
-  {
     "objectID": "index.html",
     "href": "index.html",
     "title": "AtelieR 2024 : mini-bootcamp à Palaiseau",
@@ -19,6 +12,13 @@
     "title": "AtelieR 2024 : mini-bootcamp à Palaiseau",
     "section": "",
     "text": "L’atelieR 2024 ou mini-bootcamp R du groupe State Of The R est prévu sur le Campus AgroParisSaclay dans les locaux de l’unité MIA-PS du 11 au 13 mars 2024.\nStateoftheR est un réseau du département MathNum INRAE.\n\n\nIl s’agisse de la première édition sous ce format, un thème privilégié sur 2-3 jours. Cet atelier réunit un groupe de chercheurs, ingénieurs, doctorants, tous utilisateurs avancés de R et développeurs de paquets pour explorer les dernières fonctionnalités du logiciel et les nouvelles pratiques de développement. A l’issue de l’atelier le collectif produit une synthèse de cette veille logiciel de manière à progresser collectivement dans l’utilisation du logiciel mais surtout dans la production d’outils statistiques à destination de la communauté.\nLe résultat de cette semaine est disponible sur cette page"
+  },
+  {
+    "objectID": "index.html#thématique-analyse-de-données-dabondance-multivariées",
+    "href": "index.html#thématique-analyse-de-données-dabondance-multivariées",
+    "title": "AtelieR 2024 : mini-bootcamp à Palaiseau",
+    "section": "Thématique : analyse de données d’abondance multivariées",
+    "text": "Thématique : analyse de données d’abondance multivariées\nExploration (liste initialement proposée) des modèles et outils :\n\ngllvm : Generalized Linear Latent Variable Models\npackage R {gllvm} Estimation is performed using either Laplace approximation method or variational approximation method implemented via TMB (Kristensen et al., (2016). For details see Niku et al. (2019a) and Niku et al. (2019b).\n\n\nhmsc : Hierarchical Modelling of Species Communities (HMSC) is a model-based approach for analyzing community ecological data (Ovaskainen et a.2017a).\nsite web\n\n\nPLNmodels\npackage R {PLNmodels} et Python {pyPLNmodels} site web : https://pln-team.github.io/PLNmodels/ Articles de référence"
   },
   {
     "objectID": "index.html#participants",
@@ -56,10 +56,10 @@
     "text": "Détails du fonctionnement\n\nLe docker\n(Lien vers la fiche pense-bête)[https://www.docker.com/sites/default/files/d8/2019-09/docker-cheat-sheet.pdf]\nPour créer des images Docker en local sur sa machine, voici une liste de commandes utiles\n\nPour construire une image docker, il faut créer un fichier Dockerfile qui contient la recette du Docker. Pour ce site le ficher Dockerfile a la forme suivante\n\npuis demander la construction de l’image à l’aide de la commande\n\n docker build -t nom_depot_dockerhub/nom_du_repo:version  . ## avec un nom\n\net enfin pousser sur Dockerhub\n\n docker push nom_depot_dockerhub/nom_du_repo:version\n\n\n\nLes actions\nDans les action de Github, on peut spécifier un container docker à utiliser, c’est ce que fait la ligne container du fichier d’action suivant, utiliser pour créer ce site web\n\ncat .github/workflows/website.yml"
   },
   {
-    "objectID": "index.html#thématique-analyse-de-données-dabondance-multivariées",
-    "href": "index.html#thématique-analyse-de-données-dabondance-multivariées",
-    "title": "AtelieR 2024 : mini-bootcamp à Palaiseau",
-    "section": "Thématique : analyse de données d’abondance multivariées",
-    "text": "Thématique : analyse de données d’abondance multivariées\nExploration (liste initialement proposée) des modèles et outils :\n\ngllvm : Generalized Linear Latent Variable Models\npackage R {gllvm} Estimation is performed using either Laplace approximation method or variational approximation method implemented via TMB (Kristensen et al., (2016). For details see Niku et al. (2019a) and Niku et al. (2019b).\n\n\nhmsc : Hierarchical Modelling of Species Communities (HMSC) is a model-based approach for analyzing community ecological data (Ovaskainen et a.2017a).\nsite web\n\n\nPLNmodels\npackage R {PLNmodels} et Python {pyPLNmodels} site web : https://pln-team.github.io/PLNmodels/ Articles de référence"
+    "objectID": "about.html",
+    "href": "about.html",
+    "title": "About",
+    "section": "",
+    "text": "About this site\n\n1 + 1\n\n[1] 2"
   }
 ]

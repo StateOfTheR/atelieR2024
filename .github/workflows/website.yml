@@ -5,14 +5,14 @@ on:
       - main
 
 name: Render and Publish
-  permissions: 
-     contents: write
-     pages: write
 
 jobs:
   build-deploy:
     name: Build website with quarto
     runs-on: ubuntu-latest
+    permissions: 
+      contents: write
+      pages: write
 
     steps:
       - name: Checkout repository
