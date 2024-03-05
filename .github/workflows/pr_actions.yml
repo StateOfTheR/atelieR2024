@@ -1,0 +1,15 @@
+name: pr_website
+on:
+  pull_request:
+    branches: main
+
+jobs:
+  build:
+    name: Build website with rmarkdown
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Generate slides
+        run: "quarto render"
