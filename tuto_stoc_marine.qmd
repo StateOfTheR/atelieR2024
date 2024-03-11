@@ -1,0 +1,111 @@
+---
+title: "Test étude STOC"
+author: "StateOfTheR"
+format:
+  html:
+    toc: true
+    toc-depth: 4
+    number-sections: true
+---
+
+
+```{r librairies}
+#| warning: false
+#| message: false
+#| echo: false
+library(PLNmodels)
+
+
+```
+
+
+# Objectif
+
+
+
+# Importation des données
+
+```{r}
+# climat<-read.table("data/stoc_2001_2019/climatic_data.csv",sep=";",header=TRUE)
+# cover<-read.table("data/stoc_2001_2019/cover_data.csv",sep=";",header=TRUE)
+# diversity<-read.table("data/stoc_2001_2019/diversity_data.csv",sep=";",header=TRUE)
+# stoc<-read.table("data/stoc_2001_2019/STOC_2001_2019_noComma.txt",sep="\t",header=TRUE)
+
+load("~/BIOSP-OPE/Séminaires-Formations/2024/atelieR2024/data/stoc.rda")
+
+```
+
+Les données téléchargées ci-dessus sont des données déjà pré-formatées au format demandé par le package PLN. La variable abondance doit être une matrice intégrée au data.frame.
+
+Une fonction existe permettant de générer le data : `PLNmodels::prepare_data()`.
+
+# Description des données
+
+```{r}
+str(stoc)
+```
+
+Avec les variables suivantes : 
+
+- climatiques : temp (température moyenne ?) et precip : précipitation.
+- la description des sols avec `cover_**` qui représente un pourcentage du type d'occupation du sol
+- la mesure de la diversité 
+- la zone biologique géographique (avec des unknown)
+
+Chaque ligne correspond à une série de mesure dans un quadrat de 2km * 2km.
+
+```{r}
+summary(stoc[,4:11])
+```
+
+```{r}
+cor(stoc[,c(4:10)])
+```
+
+
+```{r}
+sum(stoc[1,4:9])
+```
+
+Afin de réduire le nombre de variable on crée une variable type de cover qui correspond au type de sol le plus représenté dans le quadrat.
+
+```{r}
+# Récupération du cover le plus présent
+stoc$type_cover <- apply(stoc[,c(4:9)], MARGIN = 1, FUN = function(x){names(which.max(x))})
+```
+
+
+
+```{r}
+# Modèle sans covariable
+myPLN_M0 <- PLN(Abundance ~ 1, data=stoc)
+# Modèle avec covariable
+myPLN_M1_temp <- PLNmodels::PLN(Abundance ~ 1 + temp + offset(log(Offset)), data = stoc)
+myPLN_M1_precip <- PLNmodels::PLN(Abundance ~ 1 + precip + offset(log(Offset)), data = stoc)
+myPLN_M1_cover_Agricultural <- PLNmodels::PLN(Abundance ~ 1 + cover_Agricultural + offset(log(Offset)), data = stoc)
+myPLN_M1_cover_Artificial <- PLNmodels::PLN(Abundance ~ 1 + cover_Artificial + offset(log(Offset)), data = stoc)
+myPLN_M1_cover_Forest <- PLNmodels::PLN(Abundance ~ 1 + cover_Forest + offset(log(Offset)), data = stoc)
+myPLN_M1_cover_Open <- PLNmodels::PLN(Abundance ~ 1 + cover_Open + offset(log(Offset)), data = stoc)
+myPLN_M1_cover_Water <- PLNmodels::PLN(Abundance ~ 1 + cover_Water + offset(log(Offset)), data = stoc)
+myPLN_M1_cover_Wetlands <- PLNmodels::PLN(Abundance ~ 1 + cover_Wetlands + offset(log(Offset)), data = stoc)
+myPLN_M1_div <- PLNmodels::PLN(Abundance ~ 1 + div + offset(log(Offset)), data = stoc)
+myPLN_M1_type_cover <- PLNmodels::PLN(Abundance ~ 1 + type_cover + offset(log(Offset)), data = stoc)
+myPLN_M1_zonebio <- PLNmodels::PLN(Abundance ~ 1 + zonebio + offset(log(Offset)), data = stoc)
+
+myPLN_all <- PLNmodels::PLN(Abundance ~1 + temp + precip + cover_Agricultural + cover_Artificial +
+                              cover_Forest + cover_Open + cover_Water + cover_Wetlands + div +
+                              offset(log(Offset)), data = stoc)
+
+
+
+
+```
+
+
+
+```{r}
+myPLN_M1_type_cover %>% 
+  coefficients() %>% round(1) %>% 
+  corrplot::corrplot(is.corr = FALSE, method = 'color', tl.cex = .5, cl.pos = "n")
+```
+
