@@ -1,0 +1,35 @@
+---
+title: "Test étude STOC"
+author: "StateOfTheR"
+format:
+  html:
+    toc: true
+    toc-depth: 4
+    number-sections: true
+---
+
+
+```{r librairies}
+#| warning: false
+#| message: false
+#| echo: false
+library(PLNmodels)
+
+
+```
+
+
+# Objectif
+
+
+
+# Importation des données
+
+```{r}
+climat<-read.table("~/data/stoc_2001_2019/climatic_data.csv",sep=";",header=TRUE)
+cover<-read.table("~/data/stoc_2001_2019/cover_data.csv",sep=";",header=TRUE)
+diversity<-read.table("~/data/stoc_2001_2019/diversity_data.csv",sep=";",header=TRUE)
+stoc<-read.table("~/data/stoc_2001_2019/STOC_2001_2019_noComma.txt",sep="\t",header=TRUE)
+
+```
+
