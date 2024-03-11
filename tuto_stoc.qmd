@@ -14,7 +14,9 @@ format:
 #| message: false
 #| echo: false
 library(PLNmodels)
-
+library(tidyverse)     ## Manipulation et visualisation de données
+library(knitr)         ## Manipulation de documents markdown
+library(corrplot)      ## Visualisation de matrices
 
 ```
 
@@ -26,10 +28,165 @@ library(PLNmodels)
 # Importation des données
 
 ```{r}
-climat<-read.table("~/data/stoc_2001_2019/climatic_data.csv",sep=";",header=TRUE)
-cover<-read.table("~/data/stoc_2001_2019/cover_data.csv",sep=";",header=TRUE)
-diversity<-read.table("~/data/stoc_2001_2019/diversity_data.csv",sep=";",header=TRUE)
-stoc<-read.table("~/data/stoc_2001_2019/STOC_2001_2019_noComma.txt",sep="\t",header=TRUE)
+#climat<-read.table("~/data/stoc_2001_2019/climatic_data.csv",sep=";",header=TRUE)
+#cover<-read.table("~/data/stoc_2001_2019/cover_data.csv",sep=";",header=TRUE)
+#diversity<-read.table("~/data/stoc_2001_2019/diversity_data.csv",sep=";",header=TRUE)
+#stoc<-read.table("~/data/stoc_2001_2019/STOC_2001_2019_noComma.txt",sep="\t",header=TRUE)
 
+load(file="~/gdt/atelieR2024/data/stoc_2001_2019/stoc.rda")
+
+str(stoc)
+
+```
+
+Le dataframe `stoc` est déjà strutucturé pour une analyse avec le package {PLNmodels}.
+
+* une matrice d'abondance de 200 espèces par 12 variables
+* covariables climatiques: temp et precip
+* covariables de couvertures: prefixes de 6 variables "cover_" pourcentage de type de couvertures par site d'observations
+* zonebio: zone biogéographique de comptage des espèces - attention caractère
+* div: mesure de diversité dans l'unité géographique (richesse spécifique?)
+* Offset: vecteur 
+
+```{r}
+table(stoc$zonebio)
+```
+
+2 zones avec trop peu de données, nous nous restreignons aux zones Atlantic et Continental.
+
+```{r}
+stoc_sub<-filter(stoc,zonebio %in% c("atlantic","continental"))
+```
+
+Nous pouvons directement tester un 1er modèle.
+
+# PLNmodels
+
+```{r}
+T0<-Sys.time()
+myPLN_M0 <- PLN(Abundance ~ 1, data=stoc_sub)
+Sys.time() - T0
+
+# Modèle avec covariable
+T0<-Sys.time()
+myPLN_M1_temp <- PLNmodels::PLN(Abundance ~ 1 + temp + offset(log(Offset)), data = stoc_sub)
+Sys.time() - T0
+
+T0<-Sys.time()
+myPLN_M1_precip <- PLNmodels::PLN(Abundance ~ 1 + precip + offset(log(Offset)), data = stoc_sub)
+Sys.time() - T0
+
+T0<-Sys.time()
+myPLN_M1_cover_Agricultural <- PLNmodels::PLN(Abundance ~ 1 + cover_Agricultural + offset(log(Offset)), data = stoc_sub)
+Sys.time() - T0
+
+T0<-Sys.time()
+myPLN_M1_cover_Artificial <- PLNmodels::PLN(Abundance ~ 1 + cover_Artificial + offset(log(Offset)), data = stoc_sub)
+Sys.time() - T0
+
+T0<-Sys.time()
+myPLN_M1_cover_Forest <- PLNmodels::PLN(Abundance ~ 1 + cover_Forest + offset(log(Offset)), data = stoc_sub)
+Sys.time() - T0
+
+T0<-Sys.time()
+myPLN_M1_cover_Open <- PLNmodels::PLN(Abundance ~ 1 + cover_Open + offset(log(Offset)), data = stoc_sub)
+Sys.time() - T0
+
+T0<-Sys.time()
+myPLN_M1_cover_Water <- PLNmodels::PLN(Abundance ~ 1 + cover_Water + offset(log(Offset)), data = stoc_sub)
+Sys.time() - T0
+
+T0<-Sys.time()
+myPLN_M1_cover_Wetlands <- PLNmodels::PLN(Abundance ~ 1 + cover_Wetlands + offset(log(Offset)), data = stoc_sub)
+Sys.time() - T0
+
+T0<-Sys.time()
+myPLN_M1_div <- PLNmodels::PLN(Abundance ~ 1 + div + offset(log(Offset)), data = stoc_sub)
+Sys.time() - T0
+
+T0<-Sys.time()
+myPLN_M1_zonebio <- PLNmodels::PLN(Abundance ~ 1 + zonebio + offset(log(Offset)), data = stoc_sub)
+Sys.time() - T0
+
+T0<-Sys.time()
+myPLN_all <- PLN(Abundance ~ 1 + temp + precip + cover_Agricultural +
+               cover_Artificial + cover_Forest + cover_Open + 
+               cover_Water + cover_Wetlands + div + zonebio +
+               offset(log(Offset)), data=stoc_sub)
+Sys.time() - T0
+
+```
+
+```{r}
+# Comparaison des critères
+
+criteria_M0_M1 <- 
+  rbind(M0      = myPLN_M0$criteria,
+        M1_temp = myPLN_M1_temp$criteria,
+        M1_precip = myPLN_M1_precip$criteria,
+        M1_cover_agri = myPLN_M1_cover_Agricultural$criteria,
+        M1_cover_artificial = myPLN_M1_cover_Artificial$criteria,
+        M1_cover_forest = myPLN_M1_cover_Forest$criteria,
+        M1_cover_open = myPLN_M1_cover_Open$criteria,
+        M1_cover_water = myPLN_M1_cover_Water$criteria,
+        M1_cover_wetlands = myPLN_M1_cover_Wetlands$criteria,
+        M1_div = myPLN_M1_div$criteria,
+        M1_zonebio = myPLN_M1_zonebio$criteria,
+        M1_all = myPLN_all$criteria
+        ) %>%
+    arrange(BIC)
+
+criteria_M0_M1 %>% kable()
+```
+
+## Effet zone biogéographique
+
+```{r}
+myPLN_M1_zonebio %>% 
+  coefficients() %>% round(1) %>% 
+  corrplot(is.corr = FALSE, method = 'color', tl.cex = .5, cl.pos = "n")
+```
+
+# Réduction de dimension
+
+```{r}
+myPCA_m0 <- PLNmodels::PLNPCA(formula = Abundance ~ 1 + offset(log(Offset)),
+                              data = stoc_sub, 
+                              ranks = 1:20)
+myPCA_m0
+```
+
+```{r}
+plot(myPCA_m0)
+```
+
+Récupération du "meilleur" modèle suivant le BIC:
+
+```{r}
+model_m0 <- myPCA_m0$getBestModel(crit = "BIC")
+```
+
+
+```{r}
+ggplot(data.frame(rank = 1:model_m0$rank, 
+                  val  = 100 * model_m0$percent_var), 
+         aes(x = rank, y = val)) + geom_col() + 
+    labs(x = "Axis", y = "Variance (%)")
+```
+
+```{r}
+plot(model_m0, axes = c(1, 2), map = "individual", ind_cols = stoc_sub$zonebio)
+```
+
+
+# Références
+
+1. https://oliviergimenez.github.io/code_livre_variables_cachees/chiquet.html
+1. https://pln-team.github.io/PLNmodels/
+
+# Session Info
+
+```{r}
+sessionInfo()
 ```
 
