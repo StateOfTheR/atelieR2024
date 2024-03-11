@@ -10,6 +10,7 @@ jobs:
   build-deploy:
     name: Build website with quarto
     runs-on: ubuntu-latest
+    container: stateofther/r-atelier2024:0.1
     
     permissions: 
       contents: write
