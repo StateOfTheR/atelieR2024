@@ -25,6 +25,9 @@ format:
     theme: flatly
     highlight: tango
     toc: true
+    
+execute:
+  freeze: auto    
 
 
 
