@@ -1,5 +1,5 @@
 ---
-title: "Test étude STOC"
+title: "Test PLNmodels et gllvm - étude STOC"
 author: "StateOfTheR"
 format:
   html:
@@ -114,57 +114,56 @@ Sys.time() - T0
 
 # Modèle avec covariables
 T0<-Sys.time()
-myPLN_M1_temp <- PLNmodels::PLN(Abundance ~ 1 + temp + offset(log(Offset)), data = stoc_sub)
+myPLN_M1_temp <- PLNmodels::PLN(Abundance ~ 1 + temp, data = stoc_sub)
 Sys.time() - T0
 
 T0<-Sys.time()
-myPLN_M1_precip <- PLNmodels::PLN(Abundance ~ 1 + precip + offset(log(Offset)), data = stoc_sub)
+myPLN_M1_precip <- PLNmodels::PLN(Abundance ~ 1 + precip, data = stoc_sub)
 Sys.time() - T0
 
 T0<-Sys.time()
-myPLN_M1_cover_Agricultural <- PLNmodels::PLN(Abundance ~ 1 + cover_Agricultural + offset(log(Offset)), data = stoc_sub)
+myPLN_M1_cover_Agricultural <- PLNmodels::PLN(Abundance ~ 1 + cover_Agricultural , data = stoc_sub)
 Sys.time() - T0
 
 T0<-Sys.time()
-myPLN_M1_cover_Artificial <- PLNmodels::PLN(Abundance ~ 1 + cover_Artificial + offset(log(Offset)), data = stoc_sub)
+myPLN_M1_cover_Artificial <- PLNmodels::PLN(Abundance ~ 1 + cover_Artificial, data = stoc_sub)
 Sys.time() - T0
 
 T0<-Sys.time()
-myPLN_M1_cover_Forest <- PLNmodels::PLN(Abundance ~ 1 + cover_Forest + offset(log(Offset)), data = stoc_sub)
+myPLN_M1_cover_Forest <- PLNmodels::PLN(Abundance ~ 1 + cover_Forest, data = stoc_sub)
 Sys.time() - T0
 
 T0<-Sys.time()
-myPLN_M1_cover_Open <- PLNmodels::PLN(Abundance ~ 1 + cover_Open + offset(log(Offset)), data = stoc_sub)
+myPLN_M1_cover_Open <- PLNmodels::PLN(Abundance ~ 1 + cover_Open, data = stoc_sub)
 Sys.time() - T0
 
 T0<-Sys.time()
-myPLN_M1_cover_Water <- PLNmodels::PLN(Abundance ~ 1 + cover_Water + offset(log(Offset)), data = stoc_sub)
+myPLN_M1_cover_Water <- PLNmodels::PLN(Abundance ~ 1 + cover_Water, data = stoc_sub)
 Sys.time() - T0
 
 T0<-Sys.time()
-myPLN_M1_cover_Wetlands <- PLNmodels::PLN(Abundance ~ 1 + cover_Wetlands + offset(log(Offset)), data = stoc_sub)
+myPLN_M1_cover_Wetlands <- PLNmodels::PLN(Abundance ~ 1 + cover_Wetlands, data = stoc_sub)
 Sys.time() - T0
 
 T0<-Sys.time()
-myPLN_M1_div <- PLNmodels::PLN(Abundance ~ 1 + div + offset(log(Offset)), 
+myPLN_M1_div <- PLNmodels::PLN(Abundance ~ 1 + div, 
                                data = stoc_sub)
 Sys.time() - T0
 
 T0<-Sys.time()
-myPLN_M1_zonebio <- PLNmodels::PLN(Abundance ~ 1 + zonebio + offset(log(Offset)), 
+myPLN_M1_zonebio <- PLNmodels::PLN(Abundance ~ 1 + zonebio, 
                                    data = stoc_sub)
 Sys.time() - T0
 
 T0<-Sys.time()
-myPLN_M1_typecover <- PLNmodels::PLN(Abundance ~ 1 + type_cover + offset(log(Offset)), 
+myPLN_M1_typecover <- PLNmodels::PLN(Abundance ~ 1 + type_cover, 
                                      data = stoc_sub)
 Sys.time() - T0
 
 T0<-Sys.time()
 myPLN_all <- PLN(Abundance ~ 1 + temp + precip + cover_Agricultural +
                cover_Artificial + cover_Forest + cover_Open + 
-               cover_Water + cover_Wetlands + div + zonebio +
-               offset(log(Offset)), data=stoc_sub)
+               cover_Water + cover_Wetlands + div + zonebio, data=stoc_sub)
 Sys.time() - T0
 
 ```
@@ -229,7 +228,7 @@ plan(multisession, workers = 4)
 
 
 ```{r plnpca}
-myPCA_m0 <- PLNmodels::PLNPCA(formula = Abundance ~ 1 + offset(log(Offset)),
+myPCA_m0 <- PLNmodels::PLNPCA(formula = Abundance ~ 1,
                               data = stoc_sub, 
                               ranks = 1:20)
 myPCA_m0
@@ -278,10 +277,166 @@ factoextra::get_pca_ind(model_m0)
 factoextra::fviz_pca_ind(model_m0)
 ```
 
+## Inférence des réseaux
+
+L'objectif est des réseaux est de faire le lien entre les espèces et les covariabbles.
+
+On va tester ici toutes les combinaisons possibles de modèles (attention les combinaisons de modèles à trois variables ne sont pas toutes référencées).
+
+```{r}
+models_formula <- c(
+  # Modèle sans covariable
+  "Abundance ~ 1",
+  # Modèle avec une covariable
+  "Abundance ~ temp",
+  "Abundance ~ precip",
+  "Abundance ~ type_cover",
+  "Abundance ~ zonebio",
+  "Abundance ~ div",
+  # Modèle à deux covariables
+  "Abundance ~ temp + precip",
+  "Abundance ~ temp + type_cover",
+  "Abundance ~ temp + zonebio",
+  "Abundance ~ temp + div",
+  "Abundance ~ precip + type_cover",
+  "Abundance ~ precip + zonebio",
+  "Abundance ~ precip + div",
+  "Abundance ~ type_cover + zonebio",
+  "Abundance ~ type_cover + div",
+  "Abundance ~ zonebio + div",
+  # Modèle à trois covariables
+  "Abundance ~ temp + precip + type_cover",
+  "Abundance ~ temp + precip + zonebio",
+  "Abundance ~ type_cover + precip + zonebio",
+  "Abundance ~ type_cover + temp + zonebio",
+  "Abundance ~ type_cover + precip + div",
+  "Abundance ~ temp + precip + div",
+  # Modèle à quatre covariables
+  "Abundance ~ temp + precip + type_cover + zonebio",
+  "Abundance ~ temp + precip + type_cover + div",
+  "Abundance ~ temp + precip + zonebio + div",
+  "Abundance ~ temp + type_cover + zonebio + div",
+  "Abundance ~ precip + type_cover + zonebio + div",
+  # Modèle avec toutes les covariables
+  "Abundance ~ temp + precip + type_cover + zonebio + div"
+)
+
+```
+
+On fixe les paramètres qui vont nous permettre de comparer les modèles entre eux :
+
+```{r}
+lambda <- exp(seq(log(20), log(.01), length.out=10))
+subNb <- 2
+n <- nrow(stoc_sub)
+subSamples <- list(); for(s in 1:subNb){subSamples[[s]] <- sample(1:n, round(.8*n))}
+```
+
+Et on estime tous les modèles. Pour plus de rapidité, on va paralléliser la fonction `stabilite_selection` grâce au package `future`.
+
+```{r}
+#| eval: FALSE
+
+PLNnet = NULL
+## Ajustement de tous les modèles, avec procédure de sélection de pénalité par robustesse des arêtes
+for (formula in models_formula[4:28]) {
+  network <- PLNnetwork(formula = as.formula(formula), data = stoc, penalties = lambda)
+  stability_selection(network, force = TRUE, subsamples = subSamples)
+  PLNnet <- c(PLNnet, network)
+}
+names(PLNnet) = models_formula
+
+# save(PLNnet, file = "data/PLNnet.RData")
+# load("data/PLNnet.RData")
+```
+
+Dans le bloc ci-dessous on va retravailler un peu les données. On va notamment grouper certains modèles entre eux : modèle sans covariable (`cst`), modèle avec toutes les covariables (`full`), les modèles avec la covariable `type_cover`, les modèles avec la covariable `precip` et les modèles restant `other`.
+
+```{r}
+#| eval: FALSE
+
+models <- tibble(
+  model   = models_formula, 
+  network = PLNnet, 
+  group   = case_when(
+    model == "Abundance ~ 1 "    ~ "cst", 
+    str_detect(model, "precip") & str_detect(model, "temp") & 
+      str_detect(model, "zonebio") & str_detect(model, "type_cover") &
+      str_detect(model, "div") ~ "full", 
+    str_detect(model, "precip") ~ "precip", 
+    str_detect(model, "type_cover") ~ "type_cover", 
+    TRUE                 ~ "other"
+  )
+)
+plotdata <- models %>% 
+  mutate(criteria = map(network, "criteria")) %>% 
+  select(-network) %>% 
+  unnest(cols = criteria)
+
+# save(plotdata, file = "data/plotdata.RData")
+
+```
+
+```{r}
+load("data/plotdata.RData")
+
+manual_palette <- c("cst" = "black", "full" = "red", 
+                    "other" = "green", "precip" = "blue", "type_cover"="orange")
+ggplot(plotdata, aes(x = param, y = density, group = model, color = group)) + 
+  geom_line() + 
+  scale_x_log10() + 
+  scale_color_manual(values = manual_palette) +
+  labs(x = "lambda") + 
+  theme(legend.position.inside = c(0.95, 0.95), legend.justification = c(1, 1))
+
+ggplot(plotdata, aes(x = param, group = model, color = group)) + 
+  geom_line(aes(y = BIC, linetype = "BIC")) +
+  geom_line(aes(y = loglik, linetype = "Loglik")) + 
+  geom_vline(xintercept = with(plotdata, param[which.max(BIC)]), linetype = 2) + 
+  scale_color_manual(values = manual_palette) +
+  scale_x_log10() + 
+  labs(x = "lambda")
+
+```
+
+
+Extraction du meilleur modèle qui maximise le BIC : 
+
+```{r}
+best_model <- with(plotdata, model[which.max(BIC)])
+best_model
+```
+
+À partir du meilleur modèle on extrait la famille de réseau : 
+
+```{r}
+# networks <- PLNnet[[best_model]]
+
+load("data/networks.RData")
+networks
+```
+
+Et enfin on extrait le meilleur modèle du réseau : 
+
+```{r}
+# best_network <- networks$getBestModel("BIC")
+
+load("data/best_netword.Rdata")
+best_network
+
+```
+
+```{r}
+best_network$plot_network()
+```
+
+
 ```{r}
 # Ne pas oublier de fermer la parallélisation
 future::plan("sequential")
 ```
+
+
 
 # gllvm
 
@@ -317,12 +472,6 @@ mygllvmzip_typecover<-gllvm(Y, X, family="ZIP", num.lv = 3,
 Sys.time() - T0
 
 ```
-
-```{r}
-
-```
-
-
 
 
 
