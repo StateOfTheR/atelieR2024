@@ -13,17 +13,27 @@ format:
 #| warning: false
 #| message: false
 #| echo: false
-library(PLNmodels)
+library(PLNmodels)     ## Modèles Poisson log-normal
 library(tidyverse)     ## Manipulation et visualisation de données
 library(knitr)         ## Manipulation de documents markdown
 library(corrplot)      ## Visualisation de matrices
-
+library(igraph)        ## Manipulation de graphes
+library(tidygraph)     ## Manipulation de graphes à la mode du tidyverse
+library(ggraph)        ## Visualisation de graphes à la mode ggplot
 ```
 
 
 # Objectif
 
+Dans ce tutoriel nous allons tester les packages {PLNmodels} et {gllvm} sur un jeu de données réels **STOC** réduit à l'année XXX.
 
+Les comparaisons se feront en terme de:
+
+* facilité de mise en forme des données
+* modèles proposés
+* temps d'execution
+
+Ce tutoriel est largement inspiré du tutoriel suivant: https://oliviergimenez.github.io/code_livre_variables_cachees/chiquet.html#%C3%89tapes_pr%C3%A9liminaires.
 
 # Importation des données
 
@@ -39,7 +49,9 @@ str(stoc)
 
 ```
 
-Le dataframe `stoc` est déjà strutucturé pour une analyse avec le package {PLNmodels}.
+Le dataframe `stoc` est déjà structuré pour une analyse avec le package {PLNmodels}. Il sera donc possiblement à revoir pour {gllmv}. A noter, qu'une fonction existe dans le package permettant de formater les données : `PLNmodels::prepare_data()`.
+
+`stoc` se compose de:
 
 * une matrice d'abondance de 200 espèces par 12 variables
 * covariables climatiques: temp et precip
@@ -47,6 +59,8 @@ Le dataframe `stoc` est déjà strutucturé pour une analyse avec le package {PL
 * zonebio: zone biogéographique de comptage des espèces - attention caractère
 * div: mesure de diversité dans l'unité géographique (richesse spécifique?)
 * Offset: vecteur 
+
+Chaque ligne correspond à une série de mesure dans un quadrat de 2km * 2km.
 
 ```{r}
 table(stoc$zonebio)
@@ -58,9 +72,37 @@ table(stoc$zonebio)
 stoc_sub<-filter(stoc,zonebio %in% c("atlantic","continental"))
 ```
 
+Quelques descriptions des covariables, directement sur `stoc_sub`:
+
+```{r}
+# de `temp` à `zonebio`
+summary(stoc_sub[,2:11])
+```
+
+```{r}
+# correlation entre les var de couvertures
+cor(stoc_sub[,c(4:10)])
+```
+
+
+```{r}
+# verif si somme des couv par lignes vaut 100
+sum(stoc_sub[1,4:9])
+```
+
+Afin de réduire le nombre de variable on crée une variable type de cover, `type_cover` qui correspond au type de sol le plus représenté dans le quadrat.
+
+```{r}
+# Récupération du cover le plus présent
+stoc_sub$type_cover <- apply(stoc_sub[,c(4:9)], MARGIN = 1, 
+                         FUN = function(x){names(which.max(x))})
+```
+
 Nous pouvons directement tester un 1er modèle.
 
-# PLNmodels
+# PLNmodels 
+
+## Modèle PLN standard (regression)
 
 ```{r}
 T0<-Sys.time()
@@ -147,7 +189,7 @@ myPLN_M1_zonebio %>%
   corrplot(is.corr = FALSE, method = 'color', tl.cex = .5, cl.pos = "n")
 ```
 
-# Réduction de dimension
+## Réduction de dimension - PLNPCA
 
 ```{r}
 myPCA_m0 <- PLNmodels::PLNPCA(formula = Abundance ~ 1 + offset(log(Offset)),
@@ -178,11 +220,20 @@ ggplot(data.frame(rank = 1:model_m0$rank,
 plot(model_m0, axes = c(1, 2), map = "individual", ind_cols = stoc_sub$zonebio)
 ```
 
+# gllvm
+
+## modèle standard
+
+```{r}
+
+```
+
 
 # Références
 
 1. https://oliviergimenez.github.io/code_livre_variables_cachees/chiquet.html
 1. https://pln-team.github.io/PLNmodels/
+1. Niku et. al. gllvm: Fast analysis of multivariate abundance data with generalized linear latent variable models in R. 2019. DOI 10.1111/2041_210X.13303 
 
 # Session Info
 
