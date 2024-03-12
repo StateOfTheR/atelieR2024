@@ -13,99 +13,401 @@ format:
 #| warning: false
 #| message: false
 #| echo: false
-library(PLNmodels)
-
-
+library(PLNmodels)     ## Modèles Poisson log-normal
+library(tidyverse)     ## Manipulation et visualisation de données
+library(knitr)         ## Manipulation de documents markdown
+library(corrplot)      ## Visualisation de matrices
+library(igraph)        ## Manipulation de graphes
+library(tidygraph)     ## Manipulation de graphes à la mode du tidyverse
+library(ggraph)        ## Visualisation de graphes à la mode ggplot
 ```
 
 
 # Objectif
 
+Dans ce tutoriel nous allons tester les packages {PLNmodels} et {gllvm} sur un jeu de données réels **STOC** réduit à l'année XXX.
 
+Les comparaisons se feront en terme de:
+
+* facilité de mise en forme des données
+* modèles proposés
+* temps d'execution
+
+Ce tutoriel est largement inspiré du tutoriel suivant: https://oliviergimenez.github.io/code_livre_variables_cachees/chiquet.html#%C3%89tapes_pr%C3%A9liminaires.
 
 # Importation des données
 
 ```{r}
-# climat<-read.table("data/stoc_2001_2019/climatic_data.csv",sep=";",header=TRUE)
-# cover<-read.table("data/stoc_2001_2019/cover_data.csv",sep=";",header=TRUE)
-# diversity<-read.table("data/stoc_2001_2019/diversity_data.csv",sep=";",header=TRUE)
-# stoc<-read.table("data/stoc_2001_2019/STOC_2001_2019_noComma.txt",sep="\t",header=TRUE)
+#climat<-read.table("~/data/stoc_2001_2019/climatic_data.csv",sep=";",header=TRUE)
+#cover<-read.table("~/data/stoc_2001_2019/cover_data.csv",sep=";",header=TRUE)
+#diversity<-read.table("~/data/stoc_2001_2019/diversity_data.csv",sep=";",header=TRUE)
+#stoc<-read.table("~/data/stoc_2001_2019/STOC_2001_2019_noComma.txt",sep="\t",header=TRUE)
 
-load("~/BIOSP-OPE/Séminaires-Formations/2024/atelieR2024/data/stoc.rda")
+load(file="data/stoc.rda")
 
-```
-
-Les données téléchargées ci-dessus sont des données déjà pré-formatées au format demandé par le package PLN. La variable abondance doit être une matrice intégrée au data.frame.
-
-Une fonction existe permettant de générer le data : `PLNmodels::prepare_data()`.
-
-# Description des données
-
-```{r}
 str(stoc)
+
 ```
 
-Avec les variables suivantes : 
+Le dataframe `stoc` est déjà structuré pour une analyse avec le package {PLNmodels}. Il sera donc possiblement à revoir pour {gllmv}. A noter, qu'une fonction existe dans le package permettant de formater les données : `PLNmodels::prepare_data()`.
 
-- climatiques : temp (température moyenne ?) et precip : précipitation.
-- la description des sols avec `cover_**` qui représente un pourcentage du type d'occupation du sol
-- la mesure de la diversité 
-- la zone biologique géographique (avec des unknown)
+`stoc` se compose de:
+
+* une matrice d'abondance de 200 espèces par 12 variables
+* covariables climatiques: temp et precip
+* covariables de couvertures: prefixes de 6 variables "cover_" pourcentage de type de couvertures par site d'observations
+* zonebio: zone biogéographique de comptage des espèces - attention caractère
+* div: mesure de diversité dans l'unité géographique (richesse spécifique?)
+* Offset: vecteur 
 
 Chaque ligne correspond à une série de mesure dans un quadrat de 2km * 2km.
 
 ```{r}
-summary(stoc[,4:11])
+table(stoc$zonebio)
+```
+
+2 zones avec trop peu de données, nous nous restreignons aux zones Atlantic et Continental.
+
+```{r}
+stoc_sub<-filter(stoc,zonebio %in% c("atlantic","continental"))
+```
+
+Quelques descriptions des covariables, directement sur `stoc_sub`:
+
+```{r}
+# de `temp` à `zonebio`
+summary(stoc_sub[,2:11])
 ```
 
 ```{r}
-cor(stoc[,c(4:10)])
+# correlation entre les var de couvertures
+cor(stoc_sub[,c(4:10)])
 ```
 
 
 ```{r}
-sum(stoc[1,4:9])
+# verif si somme des couv par lignes vaut 100
+sum(stoc_sub[1,4:9])
 ```
 
-Afin de réduire le nombre de variable on crée une variable type de cover qui correspond au type de sol le plus représenté dans le quadrat.
+Afin de réduire le nombre de variable on crée une variable type de cover, `type_cover` qui correspond au type de sol le plus représenté dans le quadrat.
 
 ```{r}
 # Récupération du cover le plus présent
-stoc$type_cover <- apply(stoc[,c(4:9)], MARGIN = 1, FUN = function(x){names(which.max(x))})
+stoc_sub$type_cover <- apply(stoc_sub[,c(4:9)], MARGIN = 1, 
+                         FUN = function(x){names(which.max(x))})
+stoc$type_cover <- apply(stoc[,c(4:9)], MARGIN = 1, 
+                         FUN = function(x){names(which.max(x))})
 ```
 
+Nous pouvons directement tester un 1er modèle.
 
+# PLNmodels 
+
+## Modèle PLN standard (regression)
 
 ```{r}
-# Modèle sans covariable
-myPLN_M0 <- PLN(Abundance ~ 1, data=stoc)
+T0<-Sys.time()
+myPLN_M0 <- PLN(Abundance ~ 1, data=stoc_sub)
+Sys.time() - T0
+
 # Modèle avec covariable
-myPLN_M1_temp <- PLNmodels::PLN(Abundance ~ 1 + temp + offset(log(Offset)), data = stoc)
-myPLN_M1_precip <- PLNmodels::PLN(Abundance ~ 1 + precip + offset(log(Offset)), data = stoc)
-myPLN_M1_cover_Agricultural <- PLNmodels::PLN(Abundance ~ 1 + cover_Agricultural + offset(log(Offset)), data = stoc)
-myPLN_M1_cover_Artificial <- PLNmodels::PLN(Abundance ~ 1 + cover_Artificial + offset(log(Offset)), data = stoc)
-myPLN_M1_cover_Forest <- PLNmodels::PLN(Abundance ~ 1 + cover_Forest + offset(log(Offset)), data = stoc)
-myPLN_M1_cover_Open <- PLNmodels::PLN(Abundance ~ 1 + cover_Open + offset(log(Offset)), data = stoc)
-myPLN_M1_cover_Water <- PLNmodels::PLN(Abundance ~ 1 + cover_Water + offset(log(Offset)), data = stoc)
-myPLN_M1_cover_Wetlands <- PLNmodels::PLN(Abundance ~ 1 + cover_Wetlands + offset(log(Offset)), data = stoc)
-myPLN_M1_div <- PLNmodels::PLN(Abundance ~ 1 + div + offset(log(Offset)), data = stoc)
-myPLN_M1_type_cover <- PLNmodels::PLN(Abundance ~ 1 + type_cover + offset(log(Offset)), data = stoc)
-myPLN_M1_zonebio <- PLNmodels::PLN(Abundance ~ 1 + zonebio + offset(log(Offset)), data = stoc)
+T0<-Sys.time()
+myPLN_M1_temp <- PLNmodels::PLN(Abundance ~ 1 + temp + offset(log(Offset)), data = stoc_sub)
+Sys.time() - T0
 
-myPLN_all <- PLNmodels::PLN(Abundance ~1 + temp + precip + cover_Agricultural + cover_Artificial +
-                              cover_Forest + cover_Open + cover_Water + cover_Wetlands + div +
-                              offset(log(Offset)), data = stoc)
+T0<-Sys.time()
+myPLN_M1_precip <- PLNmodels::PLN(Abundance ~ 1 + precip + offset(log(Offset)), data = stoc_sub)
+Sys.time() - T0
 
+T0<-Sys.time()
+myPLN_M1_cover_Agricultural <- PLNmodels::PLN(Abundance ~ 1 + cover_Agricultural + offset(log(Offset)), data = stoc_sub)
+Sys.time() - T0
 
+T0<-Sys.time()
+myPLN_M1_cover_Artificial <- PLNmodels::PLN(Abundance ~ 1 + cover_Artificial + offset(log(Offset)), data = stoc_sub)
+Sys.time() - T0
+
+T0<-Sys.time()
+myPLN_M1_cover_Forest <- PLNmodels::PLN(Abundance ~ 1 + cover_Forest + offset(log(Offset)), data = stoc_sub)
+Sys.time() - T0
+
+T0<-Sys.time()
+myPLN_M1_cover_Open <- PLNmodels::PLN(Abundance ~ 1 + cover_Open + offset(log(Offset)), data = stoc_sub)
+Sys.time() - T0
+
+T0<-Sys.time()
+myPLN_M1_cover_Water <- PLNmodels::PLN(Abundance ~ 1 + cover_Water + offset(log(Offset)), data = stoc_sub)
+Sys.time() - T0
+
+T0<-Sys.time()
+myPLN_M1_cover_Wetlands <- PLNmodels::PLN(Abundance ~ 1 + cover_Wetlands + offset(log(Offset)), data = stoc_sub)
+Sys.time() - T0
+
+T0<-Sys.time()
+myPLN_M1_div <- PLNmodels::PLN(Abundance ~ 1 + div + offset(log(Offset)), data = stoc_sub)
+Sys.time() - T0
+
+T0<-Sys.time()
+myPLN_M1_zonebio <- PLNmodels::PLN(Abundance ~ 1 + zonebio + offset(log(Offset)), data = stoc_sub)
+Sys.time() - T0
+
+T0<-Sys.time()
+myPLN_M1_typecover <- PLNmodels::PLN(Abundance ~ 1 + type_cover + offset(log(Offset)), data = stoc_sub)
+Sys.time() - T0
+
+T0<-Sys.time()
+myPLN_all <- PLN(Abundance ~ 1 + temp + precip + cover_Agricultural +
+               cover_Artificial + cover_Forest + cover_Open + 
+               cover_Water + cover_Wetlands + div + zonebio +
+               offset(log(Offset)), data=stoc_sub)
+Sys.time() - T0
 
 
 ```
 
+```{r}
+# Comparaison des critères
+
+criteria_M0_M1 <- 
+  rbind(M0      = myPLN_M0$criteria,
+        M1_temp = myPLN_M1_temp$criteria,
+        M1_precip = myPLN_M1_precip$criteria,
+        M1_cover_agri = myPLN_M1_cover_Agricultural$criteria,
+        M1_cover_artificial = myPLN_M1_cover_Artificial$criteria,
+        M1_cover_forest = myPLN_M1_cover_Forest$criteria,
+        M1_cover_open = myPLN_M1_cover_Open$criteria,
+        M1_cover_water = myPLN_M1_cover_Water$criteria,
+        M1_cover_wetlands = myPLN_M1_cover_Wetlands$criteria,
+        M1_div = myPLN_M1_div$criteria,
+        M1_zonebio = myPLN_M1_zonebio$criteria,
+        M1_typecover = myPLN_M1_typecover$criteria,
+        M1_all = myPLN_all$criteria
+        ) %>%
+    arrange(BIC)
+
+criteria_M0_M1
+```
+
+## Effet zone biogéographique
+
+```{r}
+myPLN_M1_zonebio %>% 
+  coefficients() %>% round(1) %>% 
+  corrplot(is.corr = FALSE, method = 'color', tl.cex = .5, cl.pos = "n")
+```
+
+## Réduction de dimension - PLNPCA
+
+```{r}
+myPCA_m0 <- PLNmodels::PLNPCA(formula = Abundance ~ 1 + offset(log(Offset)),
+                              data = stoc_sub, 
+                              ranks = 1:20)
+myPCA_m0
+```
+
+```{r}
+plot(myPCA_m0)
+```
+
+Récupération du "meilleur" modèle suivant le BIC:
+
+```{r}
+model_m0 <- myPCA_m0$getBestModel(crit = "BIC")
+```
 
 
 ```{r}
-myPLN_M1_type_cover %>% 
-  coefficients() %>% round(1) %>% 
-  corrplot::corrplot(is.corr = FALSE, method = 'color', tl.cex = .5, cl.pos = "n")
+ggplot(data.frame(rank = 1:model_m0$rank, 
+                  val  = 100 * model_m0$percent_var), 
+         aes(x = rank, y = val)) + geom_col() + 
+    labs(x = "Axis", y = "Variance (%)")
+```
+
+```{r}
+plot(model_m0, axes = c(1, 2), map = "individual", ind_cols = stoc_sub$zonebio)
+```
+
+## Inférence des réseaux
+
+L'objectif est des réseaux est de faire le lien entre les espèces et les covariabbles.
+
+On va tester ici toutes les combinaisons possibles de modèles (attention les combinaisons de modèles à trois variables ne sont pas toutes référencées).
+
+```{r}
+models_formula <- c(
+  # Modèle sans covariable
+  "Abundance ~ 1",
+  # Modèle avec une covariable
+  "Abundance ~ temp",
+  "Abundance ~ precip",
+  "Abundance ~ type_cover",
+  "Abundance ~ zonebio",
+  "Abundance ~ div",
+  # Modèle à deux covariables
+  "Abundance ~ temp + precip",
+  "Abundance ~ temp + type_cover",
+  "Abundance ~ temp + zonebio",
+  "Abundance ~ temp + div",
+  "Abundance ~ precip + type_cover",
+  "Abundance ~ precip + zonebio",
+  "Abundance ~ precip + div",
+  "Abundance ~ type_cover + zonebio",
+  "Abundance ~ type_cover + div",
+  "Abundance ~ zonebio + div",
+  # Modèle à trois covariables
+  "Abundance ~ temp + precip + type_cover",
+  "Abundance ~ temp + precip + zonebio",
+  "Abundance ~ type_cover + precip + zonebio",
+  "Abundance ~ type_cover + temp + zonebio",
+  "Abundance ~ type_cover + precip + div",
+  "Abundance ~ temp + precip + div",
+  # Modèle à quatre covariables
+  "Abundance ~ temp + precip + type_cover + zonebio",
+  "Abundance ~ temp + precip + type_cover + div",
+  "Abundance ~ temp + precip + zonebio + div",
+  "Abundance ~ temp + type_cover + zonebio + div",
+  "Abundance ~ precip + type_cover + zonebio + div",
+  # Modèle avec toutes les covariables
+  "Abundance ~ temp + precip + type_cover + zonebio + div"
+)
+
+## Ajout de l'offset
+models_formula <- paste(models_formula, '+ offset(log(Offset))')
+
+```
+
+On fixe les paramètres qui vont nous permettre de comparer les modèles entre eux :
+
+```{r}
+lambda <- exp(seq(log(20), log(.01), length.out=10))
+subNb <- 2
+n <- nrow(stoc_sub)
+subSamples <- list(); for(s in 1:subNb){subSamples[[s]] <- sample(1:n, round(.8*n))}
+```
+
+Et on estime tout les modèles. Pour plus de rapidité, on va paralléliser la fonction `stabilite_selection` grâce au package `future`.
+
+```{r}
+#| eval: FALSE
+
+library(future)
+plan(multisession, workers = 4)
+
+PLNnet = NULL
+## Ajustement de tous les modèles, avec procédure de sélection de pénalité par robustesse des arêtes
+for (formula in models_formula[4:28]) {
+  network <- PLNnetwork(formula = as.formula(formula), data = stoc, penalties = lambda)
+  stability_selection(network, force = TRUE, subsamples = subSamples)
+  PLNnet <- c(PLNnet, network)
+}
+names(PLNnet) = models_formula
+
+future::plan("sequential")
+
+# save(PLNnet, file = "data/PLNnet.RData")
+# load("data/PLNnet.RData")
+```
+
+Dans le bloc ci-dessous on va retravailler un peu les données. On va notamment grouper certains modèles entre eux : modèle sans covariable (`cst`), modèle avec toutes les covariables (`full`), les modèles avec la covariable `type_cover`, les modèles avec la covariable `precip` et les modèles restant `other`.
+
+```{r}
+#| eval: FALSE
+
+models <- tibble(
+  model   = models_formula, 
+  network = PLNnet, 
+  group   = case_when(
+    model == "Abundance ~ 1 + offset(log(Offset))"    ~ "cst", 
+    str_detect(model, "precip") & str_detect(model, "temp") & 
+      str_detect(model, "zonebio") & str_detect(model, "type_cover") &
+      str_detect(model, "div") ~ "full", 
+    str_detect(model, "precip") ~ "precip", 
+    str_detect(model, "type_cover") ~ "type_cover", 
+    TRUE                 ~ "other"
+  )
+)
+plotdata <- models %>% 
+  mutate(criteria = map(network, "criteria")) %>% 
+  select(-network) %>% 
+  unnest(cols = criteria)
+
+# save(plotdata, file = "data/plotdata.RData")
+
+```
+
+```{r}
+load("data/plotdata.Rdata")
+
+manual_palette <- c("cst" = "black", "full" = "red", 
+                    "other" = "green", "precip" = "blue", "type_cover"="orange")
+ggplot(plotdata, aes(x = param, y = density, group = model, color = group)) + 
+  geom_line() + 
+  scale_x_log10() + 
+  scale_color_manual(values = manual_palette) +
+  labs(x = "lambda") + 
+  theme(legend.position.inside = c(0.95, 0.95), legend.justification = c(1, 1))
+
+ggplot(plotdata, aes(x = param, group = model, color = group)) + 
+  geom_line(aes(y = BIC, linetype = "BIC")) +
+  geom_line(aes(y = loglik, linetype = "Loglik")) + 
+  geom_vline(xintercept = with(plotdata, param[which.max(BIC)]), linetype = 2) + 
+  scale_color_manual(values = manual_palette) +
+  scale_x_log10() + 
+  labs(x = "lambda")
+
+```
+
+
+Extraction du meilleur modèle qui maximise le BIC : 
+
+```{r}
+best_model <- with(plotdata, model[which.max(BIC)])
+best_model
+```
+
+À partir du meilleur modèle on extrait la famille de réseau : 
+
+```{r}
+# networks <- PLNnet[[best_model]]
+
+load("data/networks.Rdata")
+networks
+```
+
+Et enfin on extrait le meilleur modèle du réseau : 
+
+```{r}
+# best_network <- networks$getBestModel("BIC")
+
+load("data/best_netword.Rdata")
+best_network
+
+```
+
+```{r}
+best_network$plot_network()
+```
+
+
+# gllvm
+
+## modèle standard
+
+```{r}
+
+```
+
+
+# Références
+
+1. https://oliviergimenez.github.io/code_livre_variables_cachees/chiquet.html
+1. https://pln-team.github.io/PLNmodels/
+1. Niku et. al. gllvm: Fast analysis of multivariate abundance data with generalized linear latent variable models in R. 2019. DOI 10.1111/2041_210X.13303 
+
+# Session Info
+
+```{r}
+sessionInfo()
 ```
 
