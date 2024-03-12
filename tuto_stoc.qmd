@@ -12,14 +12,17 @@ format:
 ```{r librairies}
 #| warning: false
 #| message: false
-#| echo: false
+#| echo: true
 library(PLNmodels)     ## Modèles Poisson log-normal
+library(gllvm)         ## Modèles Poisson log-normal (approx laplace)
 library(tidyverse)     ## Manipulation et visualisation de données
 library(knitr)         ## Manipulation de documents markdown
 library(corrplot)      ## Visualisation de matrices
 library(igraph)        ## Manipulation de graphes
 library(tidygraph)     ## Manipulation de graphes à la mode du tidyverse
 library(ggraph)        ## Visualisation de graphes à la mode ggplot
+library(future)        ## parallélisation
+library(sbm)
 ```
 
 
@@ -104,12 +107,12 @@ Nous pouvons directement tester un 1er modèle.
 
 ## Modèle PLN standard (regression)
 
-```{r}
+```{r plnstandard}
 T0<-Sys.time()
 myPLN_M0 <- PLN(Abundance ~ 1, data=stoc_sub)
 Sys.time() - T0
 
-# Modèle avec covariable
+# Modèle avec covariables
 T0<-Sys.time()
 myPLN_M1_temp <- PLNmodels::PLN(Abundance ~ 1 + temp + offset(log(Offset)), data = stoc_sub)
 Sys.time() - T0
@@ -143,11 +146,18 @@ myPLN_M1_cover_Wetlands <- PLNmodels::PLN(Abundance ~ 1 + cover_Wetlands + offse
 Sys.time() - T0
 
 T0<-Sys.time()
-myPLN_M1_div <- PLNmodels::PLN(Abundance ~ 1 + div + offset(log(Offset)), data = stoc_sub)
+myPLN_M1_div <- PLNmodels::PLN(Abundance ~ 1 + div + offset(log(Offset)), 
+                               data = stoc_sub)
 Sys.time() - T0
 
 T0<-Sys.time()
-myPLN_M1_zonebio <- PLNmodels::PLN(Abundance ~ 1 + zonebio + offset(log(Offset)), data = stoc_sub)
+myPLN_M1_zonebio <- PLNmodels::PLN(Abundance ~ 1 + zonebio + offset(log(Offset)), 
+                                   data = stoc_sub)
+Sys.time() - T0
+
+T0<-Sys.time()
+myPLN_M1_typecover <- PLNmodels::PLN(Abundance ~ 1 + type_cover + offset(log(Offset)), 
+                                     data = stoc_sub)
 Sys.time() - T0
 
 T0<-Sys.time()
@@ -159,7 +169,7 @@ Sys.time() - T0
 
 ```
 
-```{r}
+```{r critpln}
 # Comparaison des critères
 
 criteria_M0_M1 <- 
@@ -181,6 +191,26 @@ criteria_M0_M1 <-
 criteria_M0_M1 %>% kable()
 ```
 
+## Test Corrélation par blocs sur M0
+
+```{r}
+covmat<-myPLN_M0 %>% sigma()
+heatmap(covmat)
+
+plotMyMatrix(covmat)
+```
+
+```{r}
+mySimpleSBM<- covmat %>% estimateSimpleSBM(model="gaussian",
+                                           dimLabels="species",
+                                           estimOptions=list(verbosity=0,
+                                                             plot=FALSE))
+```
+
+```{r}
+plot(mySimpleSBM)
+```
+
 ## Effet zone biogéographique
 
 ```{r}
@@ -191,7 +221,14 @@ myPLN_M1_zonebio %>%
 
 ## Réduction de dimension - PLNPCA
 
+Pour cette méthode qui peut prendre du temps d'exécution, il est possible d'utiliser la parallélisation avec le package {future}:
+
 ```{r}
+plan(multisession, workers = 4)
+```
+
+
+```{r plnpca}
 myPCA_m0 <- PLNmodels::PLNPCA(formula = Abundance ~ 1 + offset(log(Offset)),
                               data = stoc_sub, 
                               ranks = 1:20)
@@ -204,10 +241,12 @@ plot(myPCA_m0)
 
 Récupération du "meilleur" modèle suivant le BIC:
 
-```{r}
+```{r pcabic}
 model_m0 <- myPCA_m0$getBestModel(crit = "BIC")
-```
 
+# struture de l'objet PLNPCA
+model_m0
+```
 
 ```{r}
 ggplot(data.frame(rank = 1:model_m0$rank, 
@@ -220,24 +259,122 @@ ggplot(data.frame(rank = 1:model_m0$rank,
 plot(model_m0, axes = c(1, 2), map = "individual", ind_cols = stoc_sub$zonebio)
 ```
 
+```{r}
+plot(model_m0, axes = c(1, 2), map = "variable")
+```
+
+Matrice de covariance estimée:
+
+```{r}
+sigma(model_m0) %>% corrplot(is.corr = FALSE)
+```
+
+Possibilité d'utiliser {factoextra} pour accéder aux informations de l'ACP de manière esthétique:
+
+```{r}
+factoextra::get_eig(model_m0)
+factoextra::get_pca_var(model_m0)
+factoextra::get_pca_ind(model_m0)
+factoextra::fviz_pca_ind(model_m0)
+```
+
+```{r}
+# Ne pas oublier de fermer la parallélisation
+future::plan("sequential")
+```
+
 # gllvm
 
-## modèle standard
+{gllvm} propose plusieurs familles de liens quand {PLNmodels} se restreint à la distribution de Poisson. {PLNmodels}, dans sa nouvelle version 1.2.0, propose le zero-inflated poisson. Pour comparer les 2 packages, nous allons donc tester sur un modèle standard avec la covariable **type_cover** en fixant le lien à "ZIP" (zero-inflated poisson).
+
+Sur cette section, nous travaillons à nouveau avec le jeu de données complet.
+
+## modèle ZIP
+
+```{r gllvmfit}
+#| error: true
+#| eval: true
+# préparation des matrices en 2 matrices à partir de stoc
+Y<-as.matrix(stoc$Abundance)
+X<-stoc[,2:10]
+studyDesign<-data.frame(sample=as.factor(1:nrow(X)))
+
+mygllvm_all<-gllvm(Y,X,family="negative.binomial")
+mygllvm_all
+
+mygllvm_design<-gllvm(Y,X,family="negative.binomial", studyDesign=studyDesign)
+mygllvm_design
+
+# avec PLNmodels - bien vérifier d'avoir la version >=1.2.0
+T0<-Sys.time()
+myplnzip_typecover<- ZIPLN(Abundance ~ 1 + precip , data = stoc)
+Sys.time() - T0
+
+# avec gllvm
+T0<-Sys.time()
+mygllvmzip_typecover<-gllvm(Y, X, family="ZIP", num.lv = 3, 
+                          formula = ~ precip)
+Sys.time() - T0
+
+```
 
 ```{r}
 
 ```
 
 
+
+
+
 # Références
 
 1. https://oliviergimenez.github.io/code_livre_variables_cachees/chiquet.html
 1. https://pln-team.github.io/PLNmodels/
+1. https://hal.science/hal-04033421/document
 1. Niku et. al. gllvm: Fast analysis of multivariate abundance data with generalized linear latent variable models in R. 2019. DOI 10.1111/2041_210X.13303 
 
 # Session Info
 
 ```{r}
 sessionInfo()
+```
+
+
+```{r}
+#| echo: false
+#| eval: false
+T0<-Sys.time()
+mygllvm_M0<-gllvm(Y, X, family=poisson(), num.lv = 3, formula = ~ 1)
+Sys.time() - T0
+
+# Modèle avec covariable
+T0<-Sys.time()
+mygllvm_temp<-gllvm(Y, X, family=poisson(), num.lv = 3, formula = ~ temp,
+                    offset=log(stoc_sub$offset))
+Sys.time() - T0
+
+T0<-Sys.time()
+mygllvm_precip<-gllvm(Y, X, family=poisson(), num.lv = 3, formula = ~ precip,
+                   offset=log(stoc_sub$Offset))
+Sys.time() - T0
+
+
+T0<-Sys.time()
+mygllvm_div<-gllvm(Y, X, family=poisson(), num.lv = 3, formula = ~ div,
+                   offset=log(stoc_sub$Offset))
+Sys.time() - T0
+
+T0<-Sys.time()
+mygllvm_zonebio<-gllvm(Y, X, family=poisson(), num.lv = 3, formula = ~ zonebio,
+                   offset=log(stoc_sub$Offset))
+Sys.time() - T0
+
+T0<-Sys.time()
+mygllvm_all<-gllvm(Y, X, family=poisson(), num.lv = 3, 
+                   formula = ~ 1 + temp + precip + cover_Agricultural +
+                            cover_Artificial + cover_Forest + cover_Open + 
+                            cover_Water + cover_Wetlands + div + zonebio,
+                   offset=log(stoc_sub$Offset))
+Sys.time() - T0
 ```
 
