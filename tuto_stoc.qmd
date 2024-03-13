@@ -28,7 +28,9 @@ library(sbm)
 
 # Objectif
 
-Dans ce tutoriel nous allons tester les packages {PLNmodels} et {gllvm} sur un jeu de données réels **STOC** réduit à l'année XXX. Ces packages ont implémenté des modèles à variables latentes offrant une grande flexibilité dans la modélisation de la dépendance et permettant de tenir compte de la nature de la réponse (comptages). Le modèle PLN (Poisson log-normal) repose sur une modélisation gaussienne de la couche latente, i.e. la dépendance entre les espèces y est décrite par la matrice de covariance du vecteur latent associé à chaque échantillon. A noter que ces modèles permettent de prendre assez facilement en compte l'effet de l'environnement (interactions abiotiques) sur l'abondance des différentes espèces via une régression.
+Dans ce tutoriel nous allons tester les packages {PLNmodels} et {gllvm} sur un jeu de données réels **STOC** réduit aux années 2005 à 2010 où les données d'abondance ont été sommées sur toutes ces années. 
+
+Ces packages ont implémenté des modèles à variables latentes offrant une grande flexibilité dans la modélisation de la dépendance et permettant de tenir compte de la nature de la réponse (comptages). Le modèle PLN (Poisson log-normal) repose sur une modélisation gaussienne de la couche latente, i.e. la dépendance entre les espèces y est décrite par la matrice de covariance du vecteur latent associé à chaque échantillon. A noter que ces modèles permettent de prendre assez facilement en compte l'effet de l'environnement (interactions abiotiques) sur l'abondance des différentes espèces via une régression.
 
 {PLNmodels} comme {gllvm} sont disponibles sur le CRAN et github, donc facilement installables sur R via la commande `install.packages()`:
 
@@ -39,7 +41,7 @@ Dans ce tutoriel nous allons tester les packages {PLNmodels} et {gllvm} sur un j
 
 L'un comme l'autre utilise pour l'estimation l'inférence variationnelle, avec approximation de Laplace pour {gllvm}.
 
-{PLNmodels} propose en plus de la régression, les méthodes ACP, LDA, analyse de réseaux et modèle de mixture avec implémentation en pyTorch pour les gros jeux de données. {gllvm} a plus développé son modèle de régression en proposant différentes distributions de lien, la possibilité d'ajout de facteurs aléatoires.
+{PLNmodels} propose en plus de la régression, les méthodes ACP, LDA, analyse de réseaux et modèle de mixture avec implémentation en pyTorch pour les gros jeux de données. {gllvm} a plus développé son modèle de régression en proposant différentes distributions de lien, la possibilité d'ajout de facteurs aléatoires et par défaut une réduction de la dimension par ACP.
 
 Les comparaisons se feront en terme de:
 
@@ -119,6 +121,19 @@ Nous pouvons directement tester un 1er modèle.
 
 ## Modèle PLN standard (regression)
 
+$$Y_i | Z_i \sim \mathcal{P}(\exp Z_i), \quad Z_i \sim \mathcal{N}(m_i,\Sigma)$$
+
+Nombre de paramètres du modèle : $p$ paramètres de moyenne + $p(p+1)/2$ paramètres de covariance, soit :
+
+```{r param}
+n <- dim(stoc$Abundance)[1]; p <- dim(stoc$Abundance)[2];
+n; p;
+
+# nb param
+p + p*(p+1)/2
+```
+
+
 ```{r plnstandard}
 T0<-Sys.time()
 myPLN_M0 <- PLN(Abundance ~ 1, data=stoc_sub)
@@ -179,6 +194,45 @@ myPLN_all <- PLN(Abundance ~ 1 + temp + precip + cover_Agricultural +
 Sys.time() - T0
 
 ```
+
+Représentation de la matrice de variance-covariance du modèle M0:
+
+```{r varcov1}
+heatmap(cov2cor(sigma(myPLN_M0)))
+```
+
+Graph des prédictions versus observations pour M0:
+
+```{r}
+data.frame(
+  fitted   = as.vector(fitted(myPLN_M0)),
+  observed = as.vector(stoc_sub$Abundance)
+) %>% 
+  ggplot(aes(x = observed, y = fitted)) + 
+    geom_point(size = .5, alpha =.25 ) +
+    geom_abline(intercept = 0, slope = 1, color = "red") +
+    scale_x_log10() + 
+    scale_y_log10() + 
+    theme_bw() + annotation_logticks()
+```
+
+Les variables latentes du modèle M0 sont (pour la 1ère espèce) :
+
+```{r latent}
+myPLN_M0$latent[1:10,1]
+```
+
+Et les positions des variables latentes sans covariates/offsets sont (ici, sans intercept, pour la 1ère espèce) :
+
+```{r latent_pos}
+myPLN_M0$latent_pos[1:10,1]
+
+# calcul pour retrouver latent_pos
+myPLN_M0$latent[1:10,1] - rep(myPLN_M0$model_par$B[1],10)
+```
+
+
+Sélection meilleur modèle par BIC:
 
 ```{r critpln}
 # Comparaison des critères
@@ -287,7 +341,59 @@ factoextra::get_eig(model_m0)
 factoextra::get_pca_var(model_m0)
 factoextra::get_pca_ind(model_m0)
 factoextra::fviz_pca_ind(model_m0)
+factoextra::fviz_pca_var(model_m0)
 ```
+
+```{r}
+data.frame(
+  fitted   = as.vector(fitted(model_m0)),
+  observed = as.vector(stoc_sub$Abundance)
+) %>% 
+  ggplot(aes(x = observed, y = fitted)) + 
+    geom_point(size = .5, alpha =.25 ) +
+    geom_abline(intercept = 0, slope = 1, color = "red") +
+    scale_x_log10(limits = c(1,1000)) + 
+    scale_y_log10(limits = c(1,1000)) + 
+    theme_bw() + annotation_logticks()
+```
+
+
+## Analyse linéaire discriminante
+
+**Modèle sans covariable**
+
+Nous utilisons `zonebio` en var discrete, sur le dataset complet `stoc`.
+
+```{r PLNLDA_nocov}
+LDA_zonebio_nocov <- PLNLDA(Abundance ~ 0 + offset(log(Offset)),
+                            grouping = zonebio, data = stoc)
+LDA_zonebio_nocov
+sigma(LDA_zonebio_nocov) %>% corrplot::corrplot(is.corr = FALSE)
+coef(LDA_zonebio_nocov)
+LDA_zonebio_nocov$group_means %>% head() %>% knitr::kable(digits = 2)
+plot(LDA_zonebio_nocov)
+c(LDA_zonebio_nocov$loglik, LDA_zonebio_nocov$BIC, LDA_zonebio_nocov$ICL)
+LDA_zonebio_nocov$scores %>% head %>% knitr::kable(digits = 2)
+LDA_zonebio_nocov$corr_map %>% head %>% knitr::kable(digits = 2)
+```
+
+**Modèle avec covariables meteo**
+
+```{r PLNLDA_cov}
+LDA_zonebio_cov <- PLNLDA(Abundance ~ temp + precip + 0 + offset(log(Offset)),
+                          grouping = zonebio, data = stoc)
+LDA_zonebio_cov
+sigma(LDA_zonebio_cov) %>% corrplot::corrplot(is.corr = FALSE)
+coef(LDA_zonebio_cov)
+LDA_zonebio_cov$group_means %>% head() %>% knitr::kable(digits = 2)
+plot(LDA_zonebio_cov)
+c(LDA_zonebio_cov$loglik, LDA_zonebio_cov$BIC, LDA_zonebio_cov$ICL)
+LDA_zonebio_cov$scores %>% head %>% knitr::kable(digits = 2)
+LDA_zonebio_cov$corr_map %>% head %>% knitr::kable(digits = 2)
+```
+
+Les covariables météorologiques semblent bien discriminer/expliquer les zones biologiques.
+
 
 ## Inférence des réseaux
 
@@ -454,7 +560,7 @@ future::plan("sequential")
 
 # gllvm
 
-{gllvm} propose plusieurs familles de liens quand {PLNmodels} se restreint à la distribution de Poisson. {PLNmodels}, dans sa nouvelle version 1.2.0, propose le zero-inflated poisson. Pour comparer les 2 packages, nous allons donc tester sur un modèle standard avec la covariable **type_cover** en fixant le lien à "ZIP" (zero-inflated poisson).
+{gllvm} propose plusieurs distributions de liens quand {PLNmodels} se restreint à la distribution de Poisson et par défaut fait une réduction de la dimension (ACP, paramètre `num.lv` dans la fonction `gllvm()`). {PLNmodels}, dans sa nouvelle version 1.2.0, propose le zero-inflated poisson. Pour comparer les 2 packages, nous allons donc tester sur un modèle standard avec la covariable **type_cover** en fixant le lien à "ZIP" (zero-inflated poisson). Les sorties des 2 fonctions ne sont donc pas directement comparables, il faudra attendre l'implémentation de `ZIPPCA()` dans {PLNmodels} pour pouvoir comparer.
 
 Sur cette section, nous travaillons à nouveau avec le jeu de données complet.
 
