@@ -28,13 +28,25 @@ library(sbm)
 
 # Objectif
 
-Dans ce tutoriel nous allons tester les packages {PLNmodels} et {gllvm} sur un jeu de données réels **STOC** réduit à l'année XXX.
+Dans ce tutoriel nous allons tester les packages {PLNmodels} et {gllvm} sur un jeu de données réels **STOC** réduit à l'année XXX. Ces packages ont implémenté des modèles à variables latentes offrant une grande flexibilité dans la modélisation de la dépendance et permettant de tenir compte de la nature de la réponse (comptages). Le modèle PLN (Poisson log-normal) repose sur une modélisation gaussienne de la couche latente, i.e. la dépendance entre les espèces y est décrite par la matrice de covariance du vecteur latent associé à chaque échantillon. A noter que ces modèles permettent de prendre assez facilement en compte l'effet de l'environnement (interactions abiotiques) sur l'abondance des différentes espèces via une régression.
+
+{PLNmodels} comme {gllvm} sont disponibles sur le CRAN et github, donc facilement installables sur R via la commande `install.packages()`:
+
+* https://github.com/PLN-team/PLNmodels
+* https://cran.r-project.org/package=PLNmodels
+* https://github.com/JenniNiku/gllvm
+* https://cran.r-project.org/package=gllvm
+
+L'un comme l'autre utilise pour l'estimation l'inférence variationnelle, avec approximation de Laplace pour {gllvm}.
+
+{PLNmodels} propose en plus de la régression, les méthodes ACP, LDA, analyse de réseaux et modèle de mixture avec implémentation en pyTorch pour les gros jeux de données. {gllvm} a plus développé son modèle de régression en proposant différentes distributions de lien, la possibilité d'ajout de facteurs aléatoires.
 
 Les comparaisons se feront en terme de:
 
 * facilité de mise en forme des données
 * modèles proposés
 * temps d'execution
+* utilisation de la distribution ZIP (zero-inflated poisson)
 
 Ce tutoriel est largement inspiré du tutoriel suivant: https://oliviergimenez.github.io/code_livre_variables_cachees/chiquet.html#%C3%89tapes_pr%C3%A9liminaires.
 
@@ -376,6 +388,8 @@ plotdata <- models %>%
 # save(plotdata, file = "data/plotdata.RData")
 
 ```
+
+
 
 ```{r}
 load("data/plotdata.RData")
